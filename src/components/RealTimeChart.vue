@@ -6,13 +6,24 @@
   <button @click="resetChart">重置</button>
   <div id="container"></div>
 </template>
-<script setup ts>
+<script setup lang="ts">
 import { onMounted, getCurrentInstance, ref } from "vue";
 const { proxy } = getCurrentInstance();
 const chart=ref(null)
 const duration = ref(30000);
 const count = ref(100);
 let timer = null;
+const incomingBuffer:Array<[number,number]> = [];// incomingBuffer 用于缓存实时数据，避免频繁更新图表。
+let flushTimer:number|null = null;
+const FLUSH_INTERVAL = 300; // 每300ms刷新一次
+
+const flushBuffer = () => {
+  if (incomingBuffer.length === 0) {
+    return;
+  }
+  const data = incomingBuffer.splice(0, incomingBuffer.length);
+  updateChart(data);
+};
 
 const generateRandomData = (duration, count) => {
   const loopCount = duration / 100;
@@ -23,7 +34,7 @@ const generateRandomData = (duration, count) => {
     for (let i = 0; i < count; i++) {
       res.push([Date.now(), Math.random() * 100]);
     }
-    updateChart(res);
+    incomingBuffer.push(...res);
     if (t > loopCount) {
       clearInterval(timer);
       return;
@@ -46,11 +57,14 @@ const updateChart = (data) => {
 };
 
 const startChart = () => {
+  flushTimer && clearInterval(flushTimer);
   generateRandomData(duration.value, count.value);
+  flushTimer = setInterval(flushBuffer, FLUSH_INTERVAL);
 };
 
 const stopChart = () => {
   clearInterval(timer);
+  flushTimer && clearInterval(flushTimer);
 };
 
 const resetChart = () => {
