@@ -39,7 +39,10 @@ const updateChart = (data) => {
         data,
       },
     ],
-  });
+  },
+  false,//允许内部合并，避免完全重建notMerge
+  true,//延迟更新，减少立即计算的压力lazyUpdate
+  );
 };
 
 const startChart = () => {
@@ -65,11 +68,15 @@ const resetChart = () => {
 
 const createChart = () => {
   const container = document.getElementById("container");
-  chart.value = proxy.$echarts.init(container);
+  chart.value = proxy.$echarts.init(container,{
+    renderer:"canvas",
+    useDirtyRect:true,//切换为 Canvas 渲染并启用 useDirtyRect，减少重绘范围。
+  });
   const option = {
     xAxis: {
       type: "time",
       data: [],
+      boundaryGap: false
     },
     yAxis: {
       type: "value",
@@ -78,10 +85,30 @@ const createChart = () => {
       {
         data: [],
         type: "line",
-        showSymbol: true,
+        showSymbol: false,//禁用动画并隐藏数据点符号，降低每次绘制的像素开销。
+        sampling: 'lttb',//开启采样（lttb），在大量点位时进行下采样，保留趋势
+        smooth: true,//开启平滑曲线，使数据点之间的变化更自然。
       },
     ],
-    animation: true,
+    dataZoom: [
+        {
+            id: 'dataZoomX',
+            type: 'slider',
+            xAxisIndex: [0],
+            filterMode: 'filter', // 设定为 'filter' 从而 X 的窗口变化会影响 Y 的范围。
+            start: 30,
+            end: 70
+        },
+        {
+            id: 'dataZoomY',
+            type: 'slider',
+            yAxisIndex: [0],
+            filterMode: 'empty',
+            start: 20,
+            end: 80
+        }
+    ],  
+    animation: false,
   };
   chart.value.setOption(option);
 };
